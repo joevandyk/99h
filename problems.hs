@@ -45,13 +45,80 @@ prop_2 :: [([String] -> String)] -> [String] -> String -> String -> Bool
 prop_2 [] _ _ _ = True
 prop_2 (f:fs) xs x y = f(xs ++ [x] ++ [y]) == x && prop_2 fs xs x y
 
--- 3 (find k"th element of a list)
-element_at xs x = xs !! x
-prop_3a xs x = (x < length xs && x >= 0) ==> element_at xs (x::Int) == (xs !! x::Int)
+-- 3 (find k"th element of a list. first element is 1.)
+element_at :: [a] -> Int -> a
+element_at xs x = head $ reverse $ take x xs
 
+prop_3 :: (NonEmptyList String) -> Property
+prop_3 (NonEmpty xs) = forAll (choose (1, length xs)) test
+  where test i = element_at xs i == (xs !! (i-1))
+
+
+-- 4 (find the number of elements in a list)
+myLength :: [a] -> Int
+myLength [] = 0
+myLength (_:xs) = 1 + myLength xs
+
+prop_4 :: [String] -> Bool
+prop_4 xs = myLength xs == length xs
+
+prop_4a :: [String] -> Property
+prop_4a xs = forAll arbitrary test 
+  where test xs = myLength xs == length (xs::[String])
+
+
+-- 5 (reverse a list)
+-- inefficient, because ++ rebuilds the list.
+-- using (:) is faster.
+myReverse :: [a] -> [a]
+myReverse [] = []
+myReverse (x:xs) = myReverse xs ++ [x]
+
+prop_5a :: [Int] -> Bool
+prop_5a xs = (myReverse $ myReverse xs) == xs
+prop_5b :: [Int] -> Bool
+prop_5b xs = (myReverse xs) == (reverse xs)
+prop_5c :: String -> Bool
+prop_5c xs = (myReverse xs) == foldl (\acc x -> x:acc) [] xs
+
+
+-- 6 (check to see if a string is a palindrome)
+isPalindrome :: Eq a => [a] -> Bool
+isPalindrome xs = xs == (myReverse xs)
+--isPalindrome xs = True
+
+prop_6a :: String -> Bool
+prop_6a s = isPalindrome (s ++ reverse s)
+prop_6b :: String -> Property
+prop_6b s = not (null s) ==> isPalindrome (s ++ (tail.reverse) s)
+
+-- Fails, need to figure out how to randomly generate things that 
+-- aren't palindromes.
+prop_6c i s = not (null s) ==>  
+              i > 0        ==> 
+              i < length s ==> 
+              i*2 /= length s ==> 
+              not (isPalindrome (take i s ++ "•" ++ drop i s))
+
+
+-- 7 (flatten a nested list structure)
+-- TODO review this.  Also, write test for it.
+data NestedList a = Elem a | List [NestedList a]
+flatten :: NestedList a -> [a]
+flatten (Elem a) = [a]
+flatten (List []) = []
+flatten (List (x:xs)) = flatten x ++ flatten (List xs)
 
 tests  = [("1",  quickCheck $ prop_1 [myLast, myLast', myLast'', myLast''', myLast''''])
          ,("2",  quickCheck $ prop_2 [myButLast, myButLast''])
-         --,("3a",                 quickCheckN 1000 prop_3a)
+         ,("3",  quickCheck $ prop_3)
+         ,("4",  quickCheck $ prop_4)
+         ,("4a", quickCheck $ prop_4a)
+         ,("5a", quickCheck $ prop_5a)
+         ,("5b", quickCheck $ prop_5b)
+         ,("5c", quickCheck $ prop_5c)
+         ,("6a", quickCheck $ prop_6a)
+         ,("6b", quickCheck $ prop_6b)
+         --,("6c", quickCheck $ prop_6c)
          ]
 
